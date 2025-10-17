@@ -1,0 +1,142 @@
+networks:
+  xroad-central-server-net:
+    driver: bridge
+
+
+x-common: &common
+  restart: always
+  networks:
+    - xroad-central-server-net
+
+
+volumes:
+  mount-data-central-server-db: null
+  mount-data-central-server-config: null
+  mount-data-central-server-backup: null
+  mount-data-central-server-ca: null
+  mount-data-management-security-server-db: null
+  mount-data-management-security-server-config: null
+  mount-data-management-security-server-backup: null
+  mount-data-testca: null
+
+services:
+  # Add TestCA service
+  testca:
+    build:
+      context: ./testca
+      dockerfile: Dockerfile
+    container_name: testca
+    <<: *common
+    volumes:
+      - mount-data-testca:/home/ca
+    ports:
+      - "8888:8888"  # OCSP
+      - "8899:8899"  # TSA
+      - "8887:8887"  # ACME
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  central-server:
+    build:
+      context: ./central-server
+      dockerfile: Dockerfile
+      args:
+        - XROAD_TOKEN_PIN=TokenPin@123!
+        - XROAD_ADMIN_USER=cs-admin
+        - XROAD_ADMIN_PASSWORD=cs-admin123123@
+    container_name: central-server
+    <<: *common
+    depends_on:
+      testca:
+        condition: service_healthy
+    healthcheck:
+      interval: 5s
+      retries: 40
+      test: [ "CMD", "curl", "-f", "-k", "https://localhost:4000" ]
+    # ports:
+    #   - 80:80
+    #   - 4000:4000
+    #   - 4001:4001
+    #   - 4002:4002
+    #   - 8888:8888
+    #   - 8899:8899
+    volumes:
+      - mount-data-central-server-db:/var/lib/postgresql/14/main
+      - mount-data-central-server-config:/etc/xroad
+      - mount-data-central-server-backup:/var/lib/xroad
+      - mount-data-central-server-ca:/home/ca/certs
+  
+  management-security-server-db:
+    image: postgres:12
+    container_name: management-security-server-db
+    <<: *common
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # ports:
+    #   - 7777:5432
+    volumes:
+      - mount-data-management-security-server-db:/var/lib/postgresql/12/main
+  
+  management-security-server:
+    build:
+      context: ./management-security-server
+      dockerfile: Dockerfile
+    container_name: management-security-server
+    <<: *common
+    depends_on:
+      management-security-server-db:
+        condition: service_healthy
+      testca:
+        condition: service_healthy
+    environment:
+      - XROAD_TOKEN_PIN=TokenPin@123!
+      - XROAD_ADMIN_USER=ssm-admin
+      - XROAD_ADMIN_PASSWORD=ssm-admin123123@
+      - XROAD_LOG_LEVEL=INFO
+      - XROAD_DB_HOST=management-security-server-db
+      - XROAD_DB_PORT=5432
+      - XROAD_DB_PWD=postgres
+    healthcheck:
+      interval: 5s
+      retries: 40
+      test: [ "CMD", "curl", "-f", "-k", "https://localhost:4000" ]
+    # ports: 
+    #   - 4004:4000
+    #   - 5588:5588
+    #   - 443:8443
+    #   - 5500:5500
+    #   - 5577:5577
+    volumes:
+      - mount-data-management-security-server-config:/etc/xroad
+      - mount-data-management-security-server-backup:/var/lib/xroad
+  
+  central-service-setup:
+    build:
+      context: ./setup
+      dockerfile: Dockerfile
+    container_name: central-service-setup
+    <<: *common
+    restart: no
+    depends_on:
+      central-server:
+        condition: service_healthy
+      management-security-server:
+        condition: service_healthy
+      testca:
+        condition: service_healthy
+    environment:
+      - CA_HOST=testca
+    volumes:
+      - mount-data-central-server-ca:/hurl-files/ca
+      - mount-data-testca:/home/ca
+    command: --insecure --variables-file /hurl-src/vars.env --file-root /hurl-files /hurl-src/setup.hurl --very-verbose --retry 18 --retry-interval 20000

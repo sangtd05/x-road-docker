@@ -1,0 +1,70 @@
+networks:
+  xroad-security-server-net:
+    driver: bridge
+  xroad-central-server-net:
+    driver: bridge
+
+x-common: &common
+  restart: always
+  networks:
+    - xroad-security-server-net
+    - xroad-central-server-net
+
+volumes:
+  mount-data-security-server-db: null
+  mount-data-security-server-config: null
+  mount-data-security-server-backup: null
+
+services:
+  security-server-db:
+    image: postgres:15
+    container_name: security-server-db
+    <<: *common
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - mount-data-security-server-db:/var/lib/postgresql/data
+  
+  security-server:
+    build:
+      context: ./security-sever
+      dockerfile: Dockerfile
+    container_name: security-server
+    <<: *common
+    depends_on:
+      security-server-db:
+        condition: service_healthy
+    environment:
+      - XROAD_TOKEN_PIN=TokenPin@123!
+      - XROAD_ADMIN_USER=admin
+      - XROAD_ADMIN_PASSWORD=Admin123123@
+      - XROAD_LOG_LEVEL=INFO
+      - XROAD_DB_HOST=security-server-db
+      - XROAD_DB_PORT=5432
+      - XROAD_DB_PWD=postgres
+    healthcheck:
+      interval: 5s
+      retries: 40
+      test: [ "CMD", "curl", "-f", "-k", "https://localhost:4000" ]
+    volumes:
+      - mount-data-security-server-config:/etc/xroad
+      - mount-data-security-server-backup:/var/lib/xroad
+  
+  security-server-setup:
+    build:
+      context: ./setup
+      dockerfile: Dockerfile
+    container_name: security-server-setup
+    <<: *common
+    restart: no
+    depends_on:
+      security-server:
+        condition: service_healthy
+    command: --insecure --variables-file /hurl-src/vars.env --file-root /hurl-files /hurl-src/setup.hurl --very-verbose --retry 18 --retry-interval 20000
