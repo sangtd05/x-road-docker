@@ -53,6 +53,12 @@ services:
       interval: 5s
       retries: 40
       test: [ "CMD", "curl", "-f", "-k", "https://localhost:4000" ]
+    # ports:
+    #   - 4000:4000
+    #   - 5588:5588
+    #   - 443:8443
+    #   - 5500:5500
+    #   - 5577:5577
     volumes:
       - mount-data-security-server-config:/etc/xroad
       - mount-data-security-server-backup:/var/lib/xroad
