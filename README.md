@@ -2,47 +2,18 @@
 
 Dự án X-Road sử dụng Docker, bao gồm Central Server, Security Server và TestCA để phát triển và kiểm thử.
 
-## Tổng quan
-
-X-Road là một nền tảng trao đổi dữ liệu an toàn giữa các hệ thống thông tin. Dự án này containerize toàn bộ môi trường X-Road để dễ dàng triển khai và quản lý.
-
 ## Kiến trúc
 
-Dự án bao gồm hai thành phần chính:
-
-### 1. Central Service
+### 1. Central Service (máy chủ CS)
 - **Central Server**: Máy chủ trung tâm quản lý cấu hình và chứng chỉ
 - **Management Security Server**: Máy chủ bảo mật quản lý
 - **TestCA**: Certificate Authority thử nghiệm
 - **Setup Service**: Dịch vụ tự động cấu hình
 
-### 2. Security Server
+### 2. Security Server (máy khách SS)
 - **Security Server**: Máy chủ bảo mật cho các tổ chức thành viên
 - **Database**: PostgreSQL cho Security Server
 - **Setup Service**: Dịch vụ tự động cấu hình
-
-## Cài đặt và chạy
-
-### 1. Clone repository
-
-```bash
-git clone <repository-url>
-cd x-road-docker
-```
-
-### 2. Khởi động Central Service
-
-```bash
-cd central-service
-docker-compose up -d
-```
-
-### 3. Khởi động Security Server (máy khác)
-
-```bash
-cd ../security-server
-docker-compose up -d
-```
 
 ## Cấu hình
 
@@ -50,7 +21,6 @@ docker-compose up -d
 
 Các biến môi trường chính trong `central-service/docker-compose.yml`:
 
-- Tùy chỉnh port để truy cập dịch vụ
 - `XROAD_TOKEN_PIN`: Mã PIN cho token bảo mật
 - `XROAD_ADMIN_USER`: Tên người dùng quản trị
 - `XROAD_ADMIN_PASSWORD`: Mật khẩu quản trị
@@ -64,7 +34,6 @@ Các biến môi trường chính trong `security-server/setup/scenarios/vars.en
 
 Các biến môi trường chính trong `security-server/docker-compose.yml`:
 
-- Tùy chỉnh port để truy cập dịch vụ
 - `XROAD_TOKEN_PIN`: Mã PIN cho token bảo mật
 - `XROAD_ADMIN_USER`: Tên người dùng quản trị
 - `XROAD_ADMIN_PASSWORD`: Mật khẩu quản trị
@@ -87,33 +56,7 @@ Các biến môi trường chính trong `security-server/docker-compose.yml`:
 
 > **Lưu ý**: Các ports được comment trong docker-compose.yml để bảo mật. Bỏ comment nếu cần truy cập từ bên ngoài.
 
-## Sử dụng
-
-### 1. Kiểm tra trạng thái dịch vụ
-
-```bash
-# Central Service
-cd central-service
-docker-compose ps
-
-# Security Server
-cd ../security-server
-docker-compose ps
-```
-
-### 2. Xem logs
-
-```bash
-# Central Service
-docker-compose logs -f central-server
-docker-compose logs -f management-security-server
-docker-compose logs -f testca
-
-# Security Server
-docker-compose logs -f security-server
-```
-
-### 3. Truy cập giao diện quản trị
+##  Truy cập giao diện quản trị
 
 Sau khi các dịch vụ khởi động thành công, bạn có thể truy cập:
 
